@@ -3,6 +3,8 @@ render_mode cull_front, depth_test_disable;
 
 uniform vec4 albedo : hint_color;
 uniform sampler2D texture_albedo : hint_albedo;
+uniform vec4 emission : hint_color;
+uniform sampler2D texture_emission : hint_white;
 //uniform sampler2D texture_normal : hint_normal;
 //uniform float normal_scale : hint_range(-16.0,16.0);
 
@@ -42,9 +44,13 @@ void fragment(){
 	vec2 depth_uv = -obj_pos.xy*uv_scale+0.5;
 	
 	vec4 tex_albedo = textureLod(texture_albedo,depth_uv,0.0);
+	vec4 tex_emission = textureLod(texture_emission,depth_uv,0.0);
 	vec4 screen_color = texture(SCREEN_TEXTURE,SCREEN_UV);
+	
 	ALBEDO = tex_albedo.rgb * albedo.rgb * screen_color.rgb;
 	ALPHA = albedo.a * tex_albedo.a;
+	
+	EMISSION = tex_emission.rgb * emission.rgb * tex_emission.a * emission.a;
 	//ALPHA = 0.5;
 
 	//vec3 normal_map = textureLod(texture_normal,depth_uv,0.0).rgb;
@@ -56,7 +62,8 @@ void fragment(){
 	//BINORMAL = pixel_binormal;
 	
 	//ALBEDO = NORMAL;
-	if(clip((wrap-obj_pos.xyz),0.0) || clip(wrap+obj_pos.xyz,0.0) || depth == 1.0){
+	
+	if(clip((wrap-obj_pos.xyz),0.0) || clip(wrap+obj_pos.xyz,0.0) || depth == 1.0 ){
 		discard;
 	}
 	
