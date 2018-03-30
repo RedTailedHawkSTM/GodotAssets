@@ -3,8 +3,8 @@ render_mode cull_front, depth_test_disable;
 
 uniform vec4 albedo : hint_color;
 uniform sampler2D texture_albedo : hint_albedo;
-uniform sampler2D texture_normal : hint_normal;
-uniform float normal_scale : hint_range(-16.0,16.0);
+//uniform sampler2D texture_normal : hint_normal;
+//uniform float normal_scale : hint_range(-16.0,16.0);
 
 uniform vec2 uv_scale = vec2(1.0,1.0);
 uniform float wrap = 0.5;
@@ -47,7 +47,7 @@ void fragment(){
 	ALPHA = albedo.a * tex_albedo.a;
 	//ALPHA = 0.5;
 
-	vec3 normal_map = textureLod(texture_normal,depth_uv,0.0).rgb;
+	//vec3 normal_map = textureLod(texture_normal,depth_uv,0.0).rgb;
 	//NORMALMAP = normal_map;
 	//NORMALMAP_DEPTH = normal_scale;
 
