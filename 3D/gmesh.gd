@@ -336,7 +336,7 @@ class Face:
 		var bc = get_barycentric(Vector3(uv.x,uv.y,0),Vector3(loops[0].uv.x,loops[0].ux.y,0), Vector3(loops[1].uv.x,loops[1].ux.y,0), Vector3(loops[2].uv.x,loops[2].ux.y,0))
 		return (loops[0].vert.position * bc.x) + (loops[1].vert.position * bc.y) + (loops[2].vert.position * bc.z);
 
-	func clip(normal):
+	func backfacing(normal):
 		return self.normal.dot(normal) < 0.0
 
 	func calc_area():
