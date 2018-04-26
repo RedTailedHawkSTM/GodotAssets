@@ -18,6 +18,7 @@ class Vertex:
 	var index = -1
 	var position = Vector3()
 	var normal = Vector3()
+	var pointiness = 0.0
 
 	var edges = [] # edges connected to this vertex
 	var loops = [] # loops that use this vertex
@@ -74,7 +75,7 @@ class Vertex:
 		for loop in loops:
 			loop.set_smooth(smooth)
 
-	func get_pointiness():
+	func calc_pointiness():
 		var p = 0.0
 		var fPI = 1.0/PI
 		if(loops.size() > 0):
@@ -82,6 +83,7 @@ class Vertex:
 			for loop in loops:
 				n += (loop.next.vert.position - loop.vert.position).normalized()
 			p = (acos(normal.dot(n/(loops.size()))) * fPI)
+		self.pointiness = p
 		return p
 
 
@@ -520,6 +522,7 @@ func from_mesh(mesh,surface = 0):
 		face.mesh = self
 	for vert in verts:
 		vert.calc_normal()
+		vert.calc_pointiness()
 	calc_surface_area()
 
 
