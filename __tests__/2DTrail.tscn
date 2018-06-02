@@ -28,17 +28,17 @@ tracks/0/loop_wrap = true
 tracks/0/imported = false
 tracks/0/enabled = true
 tracks/0/keys = {
-"times": PoolRealArray( 0, 1 ),
-"transitions": PoolRealArray( 1, 1 ),
+"times": PoolRealArray( 0, 0.7, 1.4 ),
+"transitions": PoolRealArray( 1, 1, 1 ),
 "update": 0,
-"values": [ Vector2( 0, 0 ), Vector2( 600, 0 ) ]
+"values": [ Vector2( 0, 0 ), Vector2( 600, 0 ), Vector2( 300, 400 ) ]
 }
 tracks/1/type = "value"
 tracks/1/path = NodePath(".:uv_rotation")
 tracks/1/interp = 1
 tracks/1/loop_wrap = false
 tracks/1/imported = false
-tracks/1/enabled = true
+tracks/1/enabled = false
 tracks/1/keys = {
 "times": PoolRealArray( 0, 2 ),
 "transitions": PoolRealArray( 1, 1 ),
@@ -49,7 +49,7 @@ tracks/1/keys = {
 [node name="Node2D" type="Node2D" index="0"]
 
 material = SubResource( 2 )
-position = Vector2( 254.016, 0 )
+position = Vector2( 147.55, -11.079 )
 script = ExtResource( 1 )
 _sections_unfolded = [ "Material", "Transform" ]
 emitting = true
@@ -61,7 +61,7 @@ uv_offset = Vector2( 0, 0 )
 uv_scale = Vector2( 1, 1 )
 uv_rotation = 0.0
 uv_flip_on_back = false
-width = 100.0
+width = 400.0
 width_curve = null
 uv_width_factor = 1.0
 maximum_point_distance = 10.0
