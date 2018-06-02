@@ -11,7 +11,7 @@ export(Gradient) var color
 
 export(Vector2) var uv_offset = Vector2(0,0)
 export(Vector2) var uv_scale = Vector2(1,1)
-export(float) var uv_rotation = 0.0
+export(float,-360.0,360.0) var uv_rotation = 0.0
 
 export(float) var width = 50.0
 export(Curve) var width_curve
@@ -87,7 +87,7 @@ func draw_section(a, a_data, b, b_data):
 	
 	var w = 1-uv_width_factor
 	
-	var uv_transform = Transform2D(deg2rad(uv_rotation),uv_offset)
+	var uv_transform = Transform2D(0,Vector2(0.5,0.5)) * Transform2D(deg2rad(uv_rotation),uv_offset) * Transform2D(0,-Vector2(0.5,0.5))
 	
 	var a_uv1 = uv_transform.xform(Vector2(a_life,0.5 * a_life * w))
 	var a_uv2 = uv_transform.xform(Vector2(a_life,0.5 + 0.5 * (1-(a_life * w))))

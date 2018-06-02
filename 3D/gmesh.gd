@@ -19,6 +19,7 @@ class Vertex:
 	var position = Vector3()
 	var normal = Vector3()
 	var pointiness = 0.0
+	var crease = 0.0
 
 	var edges = [] # edges connected to this vertex
 	var loops = [] # loops that use this vertex
@@ -82,10 +83,19 @@ class Vertex:
 			var n = Vector3()
 			for loop in loops:
 				n += (loop.next.vert.position - loop.vert.position).normalized()
-			p = (acos(normal.dot(n/(loops.size()))) * fPI)
+			p = (acos(clamp(normal.dot(n/(loops.size())),-1.0,1.0)) * fPI)
 		self.pointiness = p
 		return p
 
+	func calc_crease():
+		var c = 0.0
+		var fPI = 1.0/PI
+		if(edges.size() > 0):
+			for edge in edges:
+				c += acos(edge.get_face_angle()) * fPI
+			c /= edges.size()
+		self.crease = c
+		return c
 
 class Edge:
 	# An edge connecting to verticies
@@ -121,8 +131,8 @@ class Edge:
 
 	func get_face_angle():
 		if(faces.size() == 2):
-			return faces[0].normal.dot(faces[1].normal)
-		return 0.0
+			return clamp(faces[0].normal.normalized().dot(faces[1].normal.normalized()),-1.0,1.0)
+		return 1.0
 
 	func get_length():
 		return verts[0].distance_to(verts[1])
@@ -257,7 +267,7 @@ class Face:
 	# face with 3 loops
 	var index = -1
 	var normal = Vector3()
-	var area = 0
+	var area = 0.0
 
 	var verts = [] # verts of this face
 	var edges = [] # edges of this face
@@ -302,9 +312,7 @@ class Face:
 	func calc_normal():
 		normal = Vector3()
 		if(is_valid()):
-			var n = 0
-			normal = -(verts[1].position - verts[0].position).cross(verts[2].position - verts[0].position).normalized()
-
+			normal = (-(verts[1].position - verts[0].position).cross(verts[2].position - verts[0].position)).normalized()
 		return normal
 
 	func flip():
@@ -342,9 +350,9 @@ class Face:
 		return self.normal.dot(normal) < 0.0
 
 	func calc_area():
-		var ab = loops[0].vert.position - loops[1].vert.position
-		var ac = loops[0].vert.position - loops[2].vert.position
-		self.area = ( (ab.y*ac.z - ab.z*ac.y) + (ab.z*ac.x - ab.z*ac.z) + (ab.x*ac.y - ab.y*ac.x) ) * 0.5
+		var ab = loops[1].vert.position - loops[0].vert.position
+		var ac = loops[2].vert.position - loops[0].vert.position
+		self.area = ab.cross(ac).length() * 0.5
 		return self.area
 
 
@@ -354,17 +362,23 @@ START OF GMESH
 ---------------------------------------------------------------------------------------
 """
 
+
+"""TODO
+- Add "auto_weld" function (weld_distance), and use that on from_mesh
+- use edge_hash and face_hash for tracking if something exists
+- remove vertex hash because that'll be handled by auto weld
+"""
+
 var verts = [] # all the verts in this mesh
 var edges = [] # all the edges in this mesh
 var loops = [] # all the loops in this mesh
 var faces = [] # all the faces in this mesh
-var surface_area = 0.0
 
 var _data = MeshDataTool.new()
 var _surface_tool = SurfaceTool.new()
 
-var _vert_hash = {}
 var _edge_hash = {}
+var _face_hash = {}
 
 func _init():
 	pass
@@ -373,12 +387,9 @@ func make_dirty():
 	for loop in loops:
 		loop.dirty = true
 
-func _invalidate_hashes():
-	_vert_hash = {}
-	_edge_hash = {}
-
 func clear():
-	_invalidate_hashes()
+	_edge_hash = {}
+	_face_hash = {}
 
 	verts = []
 	edges = []
@@ -392,55 +403,111 @@ func set_smooth(smooth):
 		loop.set_smooth(smooth)
 
 func add_vertex(v):
-	if(typeof(v) != TYPE_VECTOR3):
-		return null
-	if(_vert_hash.has(v) == false):
-		_vert_hash[v] = Vertex.new(v,verts.size())
-		_vert_hash[_vert_hash[v]] = _vert_hash[v]
-		_vert_hash[v].mesh = self
-		verts.append(_vert_hash[v])
-	return _vert_hash[v]
+	assert(typeof(v) == TYPE_VECTOR3)
+	var vert = Vertex.new(v,verts.size())
+	vert.mesh = self
+	verts.append(vert)
+	return vert
 
 func add_edge(v1,v2):
-	if(typeof(v1) == TYPE_VECTOR3):
-		v1 = add_vertex(v1)
-	if(typeof(v2) == TYPE_VECTOR3):
-		v2 = add_vertex(v2)
-	var a = min(v1.index,v2.index)
-	var b = max(v1.index,v2.index)
+	assert(v1 is Vertex)
+	assert(v2 is Vertex)
 
-	if(a == b):
-		null
-
-	var key = str(a) + "-" + str(b)
+	var key = [v1,v2]
+	key.sort_custom(self,"_sort_by_index")
 
 	if(_edge_hash.has(key) == false):
-		_edge_hash[key] = Edge.new([v1,v2],edges.size())
-		_edge_hash[_edge_hash[key]] = _edge_hash[key]
-		_edge_hash[key].mesh = self
-		edges.append(_edge_hash[key])
-		v1.edges.append(_edge_hash[key])
-		v2.edges.append(_edge_hash[key])
+		var edge = Edge.new([v1,v2],edges.size())
+		edge.mesh = self
+		edges.append(edge)
+		v1.edges.append(edge)
+		v2.edges.append(edge)
+		_edge_hash[key] = edge
+
 	return _edge_hash[key]
 
-func add_loop(vi):
+func has_edge(v1,v2):
+	assert(v1 is Vertex)
+	assert(v2 is Vertex)
 
-	var v = add_vertex(_data.get_vertex(vi))
+	var key = [v1,v2]
+	key.sort_custom(self,"_sort_by_index")
+
+	return _edge_hash.has(key)
+
+func add_loop(v):
+	assert(v is Vertex)
 	var l = Loop.new(v,loops.size())
-	l.color = _data.get_vertex_color(vi)
-	l.uv = _data.get_vertex_uv(vi)
-	l.uv2 = _data.get_vertex_uv2(vi)
-	l.tangent = _data.get_vertex_tangent(vi)
-	l.normal = _data.get_vertex_normal(vi)
-
 	v.loops.append(l)
-
 	l.mesh = self
 	loops.append(l)
 
 	return l
 
-func from_mesh(mesh,surface = 0):
+func add_face(v1,v2,v3):
+	assert(v1 is Vertex)
+	assert(v2 is Vertex)
+	assert(v3 is Vertex)
+
+	var key = [v1,v2,v3]
+	key.sort_custom(self,"_sort_by_index")
+
+	if(_face_hash.has(key) == false):
+
+		#this will check the edge hash
+		var e1 = add_edge(v1,v2)
+		var e2 = add_edge(v2,v3)
+		var e3 = add_edge(v3,v1)
+
+		#loops are always unique to the face
+		var l1 = add_loop(v1)
+		var l2 = add_loop(v2)
+		var l3 = add_loop(v3)
+
+		var f = Face.new([l1,l2,l3],faces.size())
+
+		l1.next = l2
+		l2.next = l3
+		l3.next = l1
+		l3.prev = l2
+		l2.prev = l1
+		l1.prev = l3
+
+		l1.edge = e1
+		l2.edge = e2
+		l3.edge = e3
+		e1.loops.append(l1)
+		e2.loops.append(l2)
+		e3.loops.append(l3)
+
+		v1.faces.append(f)
+		v2.faces.append(f)
+		v3.faces.append(f)
+
+		e1.faces.append(f)
+		e2.faces.append(f)
+		e3.faces.append(f)
+
+		l1.face = f
+		l2.face = f
+		l3.face = f
+
+		f.verts.append(v1)
+		f.verts.append(v2)
+		f.verts.append(v3)
+
+		f.edges.append(e1)
+		f.edges.append(e2)
+		f.edges.append(e3)
+
+		f.mesh = self
+		faces.append(f)
+		_face_hash[key] = f
+
+	return _face_hash[key]
+
+
+func from_mesh(mesh,surface = 0,auto_merge=true):
 
 	if(mesh is PrimitiveMesh):
 		var arr = mesh.get_mesh_arrays()
@@ -452,83 +519,98 @@ func from_mesh(mesh,surface = 0):
 	clear()
 	_data.create_from_surface(mesh,surface)
 
+	var _vert_hash = {}
+
 	for i in range(_data.get_face_count()):
 
 		var v1i = _data.get_face_vertex(i,0)
 		var v2i = _data.get_face_vertex(i,1)
 		var v3i = _data.get_face_vertex(i,2)
 
-		var v1 = add_vertex(_data.get_vertex(v1i))
-		var v2 = add_vertex(_data.get_vertex(v2i))
-		var v3 = add_vertex(_data.get_vertex(v3i))
+		var v1p = _data.get_vertex(v1i)
+		var v2p = _data.get_vertex(v2i)
+		var v3p = _data.get_vertex(v3i)
+
+		var v1
+		var v2
+		var v3
+		if(auto_merge):
+			if(_vert_hash.has(v1p)):
+				v1 = _vert_hash[v1p]
+			else:
+				v1 = add_vertex(v1p)
+				_vert_hash[v1p] = v1
+
+			if(_vert_hash.has(v2p)):
+				v2 = _vert_hash[v2p]
+			else:
+				v2 = add_vertex(v2p)
+				_vert_hash[v2p] = v2
+
+			if(_vert_hash.has(v3p)):
+				v3 = _vert_hash[v3p]
+			else:
+				v3 = add_vertex(v3p)
+				_vert_hash[v3p] = v3
+		else:
+			v1 = add_vertex(v1p)
+			v2 = add_vertex(v2p)
+			v3 = add_vertex(v3p)
 
 		if(v1.index == v2.index || v1.index == v3.index || v2.index == v3.index):
 			continue
 
-		var e1 = add_edge(v1,v2)
-		var e2 = add_edge(v2,v3)
-		var e3 = add_edge(v3,v1)
 
-		var l1 = add_loop(v1i)
-		var l2 = add_loop(v2i)
-		var l3 = add_loop(v3i)
-
-
-		l1.next = l2
-		l2.next = l3
-		l3.next = l1
-		l3.prev = l2
-		l2.prev = l1
-		l1.prev = l3
-
-		l1.edge = e1
-		e1.loops.append(l1)
-		l2.edge = e2
-		e2.loops.append(l2)
-		l3.edge = e3
-		e3.loops.append(l3)
-
-		var face = Face.new([l1,l2,l3],faces.size())
+		var face = add_face(v1,v2,v3)
 
 		face.normal = _data.get_face_normal(i)
+		var l1 = face.loops[0]
+		var l2 = face.loops[1]
+		var l3 = face.loops[2]
 
-		l1.face = face
-		l2.face = face
-		l3.face = face
+		v1.bones = _data.get_vertex_bones(v1i)
+		v2.bones = _data.get_vertex_bones(v2i)
+		v3.bones = _data.get_vertex_bones(v3i)
 
-		face.edges.append(e1)
-		e1.faces.append(face)
-		face.edges.append(e2)
-		e2.faces.append(face)
-		face.edges.append(e3)
-		e3.faces.append(face)
+		v1.weights = _data.get_vertex_weights(v1i)
+		v2.weights = _data.get_vertex_weights(v2i)
+		v3.weights = _data.get_vertex_weights(v3i)
 
-		face.verts.append(v1)
-		v1.faces.append(face)
-		face.verts.append(v2)
-		v2.faces.append(face)
-		face.verts.append(v3)
-		v3.faces.append(face)
+		l1.color = _data.get_vertex_color(v1i)
+		l2.color = _data.get_vertex_color(v2i)
+		l3.color = _data.get_vertex_color(v3i)
 
 		l1.normal = _data.get_vertex_normal(v1i)
 		l2.normal = _data.get_vertex_normal(v2i)
 		l3.normal = _data.get_vertex_normal(v3i)
 
+		l1.tangent = _data.get_vertex_tangent(v1i)
+		l2.tangent = _data.get_vertex_tangent(v2i)
+		l3.tangent = _data.get_vertex_tangent(v3i)
+
+		l1.uv = _data.get_vertex_uv(v1i)
+		l2.uv = _data.get_vertex_uv(v2i)
+		l3.uv = _data.get_vertex_uv(v3i)
+
+		l1.uv2 = _data.get_vertex_uv2(v1i)
+		l2.uv2 = _data.get_vertex_uv2(v2i)
+		l3.uv2 = _data.get_vertex_uv2(v3i)
+
 		l1.smooth = l1.normal != face.normal
 		l2.smooth = l2.normal != face.normal
 		l3.smooth = l3.normal != face.normal
 
-		faces.append(face)
-		face.mesh = self
+		face.calc_area()
+
 	for vert in verts:
 		vert.calc_normal()
 		vert.calc_pointiness()
-	calc_surface_area()
+		vert.calc_crease()
 
 
-func commit(mesh = null):
+func commit(primitive = Mesh.PRIMITIVE_TRIANGLES, mesh = null):
 	_surface_tool.clear()
-	_surface_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_surface_tool.begin(primitive)
 
 	for face in faces:
 		var l1 = face.loops[0]
@@ -570,10 +652,9 @@ func grow(amount = 1.0):
 	for vert in verts:
 		vert.position += vert.normal * amount
 
-func calc_surface_area():
-	surface_area = 0.0
-	for face in faces:
-		surface_area += face.calc_area()
+
+func _sort_by_index(a,b):
+	return a.index < b.index
 
 # need to read up about bmesh and see if I can do something similar
 """

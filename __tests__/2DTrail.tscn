@@ -1,22 +1,22 @@
 [gd_scene load_steps=6 format=2]
 
-[ext_resource path="res://2DTrail.gd" type="Script" id=1]
-[ext_resource path="res://icon.png" type="Texture" id=2]
+[ext_resource path="res://2D/2DTrail.gd" type="Script" id=1]
+[ext_resource path="res://__tests__/test_assets/icon.png" type="Texture" id=2]
 
-[sub_resource type="Shader" id=3]
+[sub_resource type="Shader" id=1]
 
 code = "shader_type canvas_item;
 
 void vertex(){
-	VERTEX += vec2(cos(VERTEX.x * TIME *0.1), sin(VERTEX.y * TIME *0.1)) * 4.0;
+	//VERTEX += vec2(cos(VERTEX.x * TIME *0.1), sin(VERTEX.y * TIME *0.1)) * 4.0;
 }"
 
-[sub_resource type="ShaderMaterial" id=4]
+[sub_resource type="ShaderMaterial" id=2]
 
 render_priority = 0
-shader = SubResource( 3 )
+shader = SubResource( 1 )
 
-[sub_resource type="Animation" id=2]
+[sub_resource type="Animation" id=3]
 
 length = 2.0
 loop = true
@@ -33,11 +33,23 @@ tracks/0/keys = {
 "update": 0,
 "values": [ Vector2( 70, 66 ), Vector2( 962, 64 ) ]
 }
+tracks/1/type = "value"
+tracks/1/path = NodePath(".:uv_rotation")
+tracks/1/interp = 1
+tracks/1/loop_wrap = false
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0, 2 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 0,
+"values": [ 0.0, 360.0 ]
+}
 
 [node name="Node2D" type="Node2D" index="0"]
 
-material = SubResource( 4 )
-position = Vector2( 250.098, 65.5962 )
+material = SubResource( 2 )
+position = Vector2( 219.052, 65.6658 )
 script = ExtResource( 1 )
 _sections_unfolded = [ "Material", "Transform" ]
 emitting = true
@@ -47,7 +59,7 @@ normal_map = null
 color = null
 uv_offset = Vector2( 0, 0 )
 uv_scale = Vector2( 1, 1 )
-uv_rotation = 90.0
+uv_rotation = 38.7357
 width = 100.0
 width_curve = null
 uv_width_factor = 1.0
@@ -55,13 +67,12 @@ maximum_point_distance = 10.0
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="." index="0"]
 
+root_node = NodePath("..")
+autoplay = "Move"
 playback_process_mode = 1
 playback_default_blend_time = 0.0
-root_node = NodePath("..")
-anims/Move = SubResource( 2 )
-playback/active = true
-playback/speed = 1.0
+playback_speed = 1.0
+anims/Move = SubResource( 3 )
 blend_times = [  ]
-autoplay = "Move"
 
 
