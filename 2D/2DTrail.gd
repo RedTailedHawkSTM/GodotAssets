@@ -12,6 +12,7 @@ export(Gradient) var color
 export(Vector2) var uv_offset = Vector2(0,0)
 export(Vector2) var uv_scale = Vector2(1,1)
 export(float,-360.0,360.0) var uv_rotation = 0.0
+export(bool) var uv_flip_on_back = false
 
 export(float) var width = 50.0
 export(Curve) var width_curve
@@ -60,7 +61,11 @@ func _process(delta):
 
 
 func draw_section(a, a_data, b, b_data):
-
+	var left = 1
+	if(uv_flip_on_back == false and (a-b).dot(b) >= 0):
+		left = -1
+	
+	
 	var a_life = a_data[0] / life
 	var b_life = b_data[0] / life
 
@@ -87,7 +92,7 @@ func draw_section(a, a_data, b, b_data):
 	
 	var w = 1-uv_width_factor
 	
-	var uv_transform = Transform2D(0,Vector2(0.5,0.5)) * Transform2D(deg2rad(uv_rotation),uv_offset) * Transform2D(0,-Vector2(0.5,0.5))
+	var uv_transform = Transform2D().scaled(uv_scale * left).translated(Vector2(0.5,0.5)).rotated(deg2rad(uv_rotation)).translated(-Vector2(0.5,0.5))
 	
 	var a_uv1 = uv_transform.xform(Vector2(a_life,0.5 * a_life * w))
 	var a_uv2 = uv_transform.xform(Vector2(a_life,0.5 + 0.5 * (1-(a_life * w))))
@@ -106,20 +111,33 @@ func draw_section(a, a_data, b, b_data):
 		a_v2,
 		b_v1,
 	],[a_color,a_color,b_color],[
-		a_uv1 * uv_scale,
-		a_uv2 * uv_scale,
-		b_uv1 * uv_scale
-	],texture,0,normal_map)
+		a_uv1,
+		a_uv2,
+		b_uv1
+	],texture,0.0,normal_map)
 	draw_primitive([
 		a_v2,
 		b_v2,
 		b_v1
 	],[a_color,b_color,b_color],[
-		a_uv2 * uv_scale,
-		b_uv2 * uv_scale,
-		b_uv1 * uv_scale
-	],texture,0,normal_map)
+		a_uv2,
+		b_uv2,
+		b_uv1
+	],texture,0.0,normal_map)
 
+
+func _get_point(i):
+	var s = points.size()+1
+	i = fmod(fmod(i,s)+s,s)
+	if(i == s-1):
+		return {
+			"position":global_position,
+			"data":[0,(points[i-1]-global_position).normalized().angle()]
+		}
+	return {
+		"position":points[i],
+		"data":points_data[i]
+	}
 
 func _draw():
 	bounds.position.x = 0
@@ -129,15 +147,16 @@ func _draw():
 	
 	if(points.size() >= 2):
 		
-		
 		draw_set_transform_matrix(global_transform.affine_inverse())
-
-		for i in range(points.size()-1):
-			draw_section(points[i],points_data[i],points[i+1],points_data[i+1])
-		
-		if(emitting == true):
-			#draw section to node position
-			var last_point = points[points.size()-1]
-			draw_section(global_position,[0,(last_position-global_position).normalized().angle()],last_point,points_data[points_data.size()-1])
+		var a
+		var b
+		var c
+		var s = points.size()
+		if(emitting == false):
+			s -= 1
+		for i in range(s):
+			a = _get_point(i)
+			b = _get_point(i+1)
+			draw_section(a.position,a.data,b.position,b.data)
 	
 	VisualServer.canvas_item_set_custom_rect(get_canvas_item(),true,bounds)
