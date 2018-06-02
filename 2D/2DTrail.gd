@@ -93,7 +93,7 @@ func draw_section(a, a_data, b, b_data):
 	var b_v1 = b_transform.xform(Vector2(0.0,b_width/2))
 	var b_v2 = b_transform.xform(Vector2(0.0,-b_width/2))
 	
-	var uv_transform = uv_center * Transform2D(deg2rad(uv_rotation),uv_offset) * uv_center.inverse()
+	var uv_transform = uv_center * Transform2D(deg2rad(uv_rotation),uv_offset).scaled(uv_scale) * uv_center.inverse()
 	
 	var a_uv1 = uv_transform.xform(Vector2(a_life, a_final_width*0.5))
 	var a_uv2 = uv_transform.xform(Vector2(a_life, 1.0 - a_final_width*0.5))
