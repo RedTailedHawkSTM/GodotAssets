@@ -4,9 +4,11 @@ extends Node2D
 export(bool) var emitting = true
 #export(int) var count = 30 #plan to add optimizations to limit the count
 export(float) var life = 1.0
+export(bool) var look_at_emitter = false
+export(Vector2) var offset = Vector2(0.0,0.0)
+
 
 export(Texture) var texture
-export(Vector2) var offset = Vector2(0.0,0.0)
 export(Texture) var normal_map
 export(Gradient) var color
 
@@ -26,6 +28,7 @@ var points_data = [] #[life, [upperDir, lowerDir] ]
 onready var last_position = [global_position,global_position]
 var bounds = Rect2()
 var uv_center = Transform2D(0,Vector2(0.5,0.5))
+
 
 
 func _ready():
@@ -52,7 +55,7 @@ func _process(delta):
 		return
 	if points.size() == 0:
 		addCurrentPoint();
-
+	
 	var last_point = points[points.size()-1]
 	var square_distance_from_last_point = last_point.distance_squared_to(global_position)
 
@@ -61,15 +64,19 @@ func _process(delta):
 
 func addCurrentPoint():
 	var age = 0
-	#TODO: find simpler method for these next 5 calculation
 	#this method of calculating the upper and lower point works better 
 	#because it depends only on the transform of the emitter at this time
-	#this supports complex rotations (inherited rotations) better 
-	var upperDir = global_transform.xform(Vector2(0,-width/2))-global_transform.xform(Vector2(0.0,0.0))
-	upperDir = upperDir.normalized() 
-	var lowerDir = global_transform.xform(Vector2(0,width/2))-global_transform.xform(Vector2(0.0,0.0))
-	lowerDir = lowerDir.normalized()
-	points.append(global_position+(global_transform.xform(offset)-global_transform.xform(Vector2(0.0,0.0)) ))
+	#this supports complex rotations (inherited rotations) better
+	
+	var transform = global_transform
+	if(look_at_emitter == true):
+		var last_point = points[points.size()-1]
+		transform = Transform2D(global_transform.origin.angle_to(last_point),Vector2())
+	
+	var upperDir = transform.basis_xform(Vector2(0,-1))
+	var lowerDir = transform.basis_xform(Vector2(0,1))
+	
+	points.append( global_position+(global_transform.basis_xform(offset)) )
 	points_data.append([age,upperDir,lowerDir])
 
 #point properties: position, age, angle
@@ -160,7 +167,7 @@ func _draw():
 	bounds.position.y = 0.0
 	bounds.size.x = 0.0
 	bounds.size.y = 0.0
-
+	
 	if(points.size() >= 2):
 
 		draw_set_transform_matrix(global_transform.affine_inverse())
@@ -170,10 +177,10 @@ func _draw():
 		var s = points.size()
 		if(emitting == false):
 			s -= 1
-		for i in range(s):
-			if i != s-1:
-				a = _get_point(i)
-				b = _get_point(i+1)
-				draw_section(a.position,a.data,b.position,b.data)
-
-		VisualServer.canvas_item_set_custom_rect(get_canvas_item(),true,bounds)
+		for i in range(s-1):
+			a = _get_point(i)
+			b = _get_point(i+1)
+			draw_section(a.position,a.data,b.position,b.data)
+	
+	VisualServer.canvas_item_set_custom_rect(get_canvas_item(),true,bounds)
+	
